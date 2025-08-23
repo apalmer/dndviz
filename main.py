@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 accuracy = .65 
 
@@ -17,43 +17,49 @@ class State:
     transitions: list
 
 def addHit(state: State):
-    newState = State( attacks=state.attacks - 1, bonusActions=state.bonusActions, hasInspiration=state.hasInspiration, hasCriticaled=state.hasCriticaled, transitions=[])
+    newState = replace(state, attacks=state.attacks - 1, transitions=[])
     process(newState)
-    return Transition(label="Hit", weight=accuracy, target=newState)
+    transition = Transition(label="Hit", weight=accuracy, target=newState)
+    state.transitions.append(transition)
 
 def addInspiredHit(state: State):
-    newState = State(attacks=state.attacks - 1, bonusActions=state.bonusActions, hasInspiration=False, hasCriticaled=state.hasCriticaled, transitions=[])
+    newState = replace(state, attacks=state.attacks - 1, hasInspiration=False, transitions=[])  
     process(newState)
-    return Transition(label="InspiredHit", weight=accuracy, target=newState)
+    transition = Transition(label="InspiredHit", weight=accuracy, target=newState)
+    state.transitions.append(transition)
 
 def addMiss(state: State):
-    newState = State(attacks=state.attacks - 1, bonusActions=state.bonusActions, hasInspiration=state.hasInspiration, hasCriticaled=state.hasCriticaled, transitions=[])
+    newState = replace(state, attacks=state.attacks - 1, transitions=[]) 
     process(newState)
-    return Transition(label="Miss", weight=accuracy, target=newState)
+    transition = Transition(label="Miss", weight=accuracy, target=newState)
+    state.transitions.append(transition)
 
 def addCritical(state: State):
-    newState = State(attacks=state.attacks - 1, bonusActions=state.bonusActions, hasInspiration=state.hasInspiration, hasCriticaled=True, transitions=[])
+    newState = replace(state, attacks=state.attacks - 1, hasCriticaled=True, transitions=[]) 
     process(newState)
-    return Transition(label="Critical", weight=accuracy, target=newState)
+    transition = Transition(label="Critical", weight=accuracy, target=newState)
+    state.transitions.append(transition)
 
 def addHew(state: State):
-    newState = State(attacks=state.attacks, bonusActions=state.bonusActions -1, hasInspiration=state.hasInspiration, hasCriticaled=state.hasCriticaled, transitions=[])
+    newState = replace(state, bonusActions=state.bonusActions-1, transitions=[])
     process(newState)
-    return Transition(label="Hew", weight=accuracy, target=newState)
+    transition = Transition(label="Hew", weight=accuracy, target=newState)
+    state.transitions.append(transition)
 
 def process(state: State):
     if state.attacks > 0:
-        state.transitions.append(addHit(state))
+        addHit(state)
         if state.hasInspiration:
-            state.transitions.append(addInspiredHit(state))
-        state.transitions.append(addMiss(state))
-        state.transitions.append(addCritical(state))
+            addInspiredHit(state)
+        addMiss(state)
+        addCritical(state)
     if state.bonusActions > 0 and state.hasCriticaled:
-        state.transitions.append(addHew(state))
+        addHew(state)
 
 def main():
     start = State(attacks=3, bonusActions=1, hasInspiration=True, hasCriticaled=False, transitions=[])
-    possibilities = process(start)
+    process(start)
+    print(start)
 
 if __name__ == "__main__":
     main()
