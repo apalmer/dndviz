@@ -1,4 +1,5 @@
 from dataclasses import dataclass, replace
+import pygraphviz as pgv
 
 accuracy = .65 
 
@@ -15,6 +16,9 @@ class State:
     hasInspiration: bool
     hasCriticaled: bool
     transitions: list
+    
+    def to_label(self):
+        return f"A:{self.attacks}\\nBA:{self.bonusActions}\\nI:{self.hasInspiration}\\nC:{self.hasCriticaled}"
 
 def addHit(state: State):
     newState = replace(state, attacks=state.attacks - 1, transitions=[])
@@ -31,19 +35,19 @@ def addInspiredHit(state: State):
 def addMiss(state: State):
     newState = replace(state, attacks=state.attacks - 1, transitions=[]) 
     process(newState)
-    transition = Transition(label="Miss", weight=accuracy, target=newState)
+    transition = Transition(label="Miss", weight=1-accuracy, target=newState)
     state.transitions.append(transition)
 
 def addCritical(state: State):
     newState = replace(state, attacks=state.attacks - 1, hasCriticaled=True, transitions=[]) 
     process(newState)
-    transition = Transition(label="Critical", weight=accuracy, target=newState)
+    transition = Transition(label="Critical", weight=0.05, target=newState)
     state.transitions.append(transition)
 
 def addHew(state: State):
     newState = replace(state, bonusActions=state.bonusActions-1, transitions=[])
     process(newState)
-    transition = Transition(label="Hew", weight=accuracy, target=newState)
+    transition = Transition(label="Hew", weight=1.0, target=newState)
     state.transitions.append(transition)
 
 def process(state: State):
@@ -53,13 +57,48 @@ def process(state: State):
             addInspiredHit(state)
         addMiss(state)
         addCritical(state)
-    if state.bonusActions > 0 and state.hasCriticaled:
+    elif state.bonusActions > 0 and state.hasCriticaled:
         addHew(state)
+
+def render_graph(start_state: State, filename: str = "state_graph.png"):
+    G = pgv.AGraph(directed=True, strict=False)
+    G.graph_attr['nodesep'] = 0.5
+    G.graph_attr['ranksep'] = 5
+    # G.node_attr['shape'] = 'box'
+    # G.node_attr['style'] = 'rounded'
+    
+    visited = set()
+    
+    def add_nodes_and_edges(state: State):
+        state_id = id(state)
+        if state_id in visited:
+            return
+        visited.add(state_id)
+        
+        # Add node for current state
+        G.add_node(state_id, label=state.to_label())
+        
+        # Add edges to target states
+        for transition in state.transitions:
+            target_id = id(transition.target)
+            G.add_node(target_id, label=transition.target.to_label())
+            G.add_edge(state_id, target_id, 
+                      label=f"{transition.label}\\n{transition.weight:.2f}",
+                      weight=transition.weight)
+            
+            # Recursively process target state
+            add_nodes_and_edges(transition.target)
+    
+    add_nodes_and_edges(start_state)
+    G.layout(prog='twopi')
+    G.draw(filename)
+    print(f"Graph saved to {filename}")
 
 def main():
     start = State(attacks=3, bonusActions=1, hasInspiration=True, hasCriticaled=False, transitions=[])
     process(start)
-    print(start)
+    render_graph(start, "dnd_state_graph.png")
+    print("State graph rendered!")
 
 if __name__ == "__main__":
     main()
